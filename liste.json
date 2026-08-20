@@ -1,9 +1,20 @@
 [
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Ala.mp3", "ad": "Ala" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/AwakeningTruths.mp3", "ad": "Awakening Truths" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/BlummBlumm.mp3", "ad": "Blumm Blumm" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/BrokenBeginnings.mp3", "ad": "Broken Beginnings" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/CaramelDelusion.mp3", "ad": "Caramel Delusion" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/EchoesofPain.mp3", "ad": "Echoes of Pain" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/FCXXVI.mp3", "ad": "FCXXVI" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/FallingDown.mp3", "ad": "Falling Down" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/FamilyTies.mp3", "ad": "Family Ties" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/HiddenBattles.mp3", "ad": "Hidden Battles" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Junkfail.mp3", "ad": "Junkfail" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Monkshood.mp3", "ad": "Monkshood" },
-  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Raindrop.mp3", "ad": "Raindrop" }
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Raindrop.mp3", "ad": "Raindrop" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/SearchingforLight.mp3", "ad": "Searching for Light" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/SilentStruggles.mp3", "ad": "Silent Struggles" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/WhispersofAddiction.mp3", "ad": "Whispers of Addiction" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/lostinShadows.mp3", "ad": "Lost in Shadows" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/risingfromtheAshes.mp3", "ad": "Rising from the Ashes" }
 ]
