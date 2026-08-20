@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ORBITAPE</title>
+<style>
+  :root{--bg:#020203;}
+  *{box-sizing:border-box;} html,body{height:100%;overscroll-behavior:none;}
+  html{-webkit-text-size-adjust:100%;}
+  body{margin:0;background:radial-gradient(120% 120% at 50% 45%,#0a0a0d 0%,#020203 70%);color:#e8f4f4;
+    display:flex;align-items:center;justify-content:center;min-height:100dvh;position:relative;overflow:hidden;cursor:pointer;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
+    -webkit-user-select:none;user-select:none;}
+  .grain{position:fixed;inset:0;pointer-events:none;z-index:41;opacity:.05;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 1px,transparent 1px 2px);mix-blend-mode:overlay;}
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:42;background:radial-gradient(120% 100% at 50% 50%,transparent 40%,rgba(0,0,0,.96) 100%);}
+  #noise{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transition:opacity .12s linear;pointer-events:none;z-index:50;mix-blend-mode:screen;}
+  .flash{position:fixed;inset:0;background:#0e2c2c;opacity:0;pointer-events:none;z-index:51;}
+  .disk{transition:opacity .8s ease, transform .8s ease;}
+  body.gecis .disk{opacity:.3; transform:scale(.93);}
+  #viz{transition:filter .8s ease;} body.gecis #viz{filter:blur(2.5px);}
+  .disk{position:relative;width:min(84vw,440px);aspect-ratio:1;z-index:10;}
+  #viz{position:absolute;top:-20%;left:-20%;width:140%;height:140%;display:block;}   /* tuval diskin %20 dışına taşar (canvas için açık width/height şart) -> halkalar kırpılmaz, boyut AYNI */
+  .hit{position:absolute;inset:0;border:0;background:transparent;border-radius:50%;cursor:pointer;z-index:2;
+    touch-action:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+  .hit:focus-visible{outline:1px solid rgba(53,224,216,.35);outline-offset:10px;}
+  #rapor{position:fixed;top:10px;right:10px;z-index:80;max-height:80vh;overflow:auto;
+    background:rgba(4,6,8,.92);border:1px solid #1c232b;color:#cfe;font-family:'Share Tech Mono',monospace;
+    font-size:11px;line-height:1.5;padding:10px 12px;display:none;min-width:220px;letter-spacing:.02em;}
+  #rapor.on{display:block;}
+  #rapor h4{margin:0 0 6px;color:#35e0d8;font-weight:400;letter-spacing:.1em;}
+  #rapor .ok{color:#7fe0c8;} #rapor .fail{color:#e88;} #rapor .dead{color:#a55;text-decoration:line-through;}
+  #rapor .row{display:flex;justify-content:space-between;gap:10px;}
+  #rapor small{color:#556;}
+  /* ── üst köşe: hareketli nebula + ORBITAPE mood ── */
+  #mark{position:fixed;top:13px;left:14px;z-index:70;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;
+    transition:transform .15s;}
+  #mark:hover{transform:translateY(-1px);}
+  #mark:active{transform:translateY(0);}
+  #mark .neb{position:relative;width:46px;height:46px;border-radius:50%;overflow:hidden;
+    box-shadow:0 0 20px rgba(90,220,210,.20), inset 0 0 14px rgba(0,0,0,.7);
+    animation:nebHue 26s linear infinite;}
+  #mark .neb::before{content:'';position:absolute;inset:-35%;
+    background:
+      radial-gradient(38% 38% at 32% 34%, rgba(130,245,224,.95), transparent 60%),
+      radial-gradient(44% 44% at 70% 62%, rgba(150,110,255,.80), transparent 62%),
+      radial-gradient(46% 46% at 56% 30%, rgba(255,120,200,.60), transparent 60%),
+      radial-gradient(60% 60% at 44% 76%, rgba(40,120,210,.65), transparent 66%);
+    filter:blur(6px);animation:nebSpin 19s linear infinite;}
+  #mark .neb::after{content:'';position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%, transparent 52%, rgba(2,4,6,.72) 100%);}
+  #mark .neb i{position:absolute;width:2px;height:2px;border-radius:50%;background:#eafff9;
+    box-shadow:0 0 4px #bfeee4;opacity:.85;animation:nebTwinkle 3.4s ease-in-out infinite;}
+  #mark .neb i:nth-child(1){top:26%;left:60%;animation-delay:0s;}
+  #mark .neb i:nth-child(2){top:62%;left:34%;animation-delay:.9s;}
+  #mark .neb i:nth-child(3){top:44%;left:72%;width:1.5px;height:1.5px;animation-delay:1.7s;}
+  #mark .neb i:nth-child(4){top:70%;left:64%;width:1.5px;height:1.5px;animation-delay:2.5s;}
+  #mark .wm{font-family:'Share Tech Mono',monospace;color:#8ff0dd;font-size:15px;letter-spacing:.34em;
+    line-height:1;text-shadow:0 0 13px rgba(90,220,210,.38);}
+  #mark .wm small{display:block;margin-top:5px;font-size:8.5px;letter-spacing:.34em;color:#5f8189;text-shadow:none;}
+  /* radyo moodu: nebula sıcak/moru + turuncu wordmark + FX kapalı rengi */
+  #mark.radio .neb::before{
+    background:
+      radial-gradient(40% 40% at 32% 34%, rgba(255,186,120,.95), transparent 60%),
+      radial-gradient(46% 46% at 70% 62%, rgba(255,92,150,.85), transparent 62%),
+      radial-gradient(46% 46% at 56% 30%, rgba(186,96,255,.72), transparent 60%),
+      radial-gradient(60% 60% at 44% 76%, rgba(150,50,180,.7), transparent 66%);}
+  #mark.radio .neb{box-shadow:0 0 20px rgba(255,140,90,.22), inset 0 0 14px rgba(0,0,0,.7);}
+  #mark.radio .wm{color:#ffb98a;text-shadow:0 0 13px rgba(255,140,90,.4);}
+  #mark.radio .wm small{color:#a76e54;}
+  /* MIXTAPE moodu: nebula yeşil-altın + zeytin wordmark */
+  #mark.liste .neb::before{
+    background:
+      radial-gradient(40% 40% at 32% 34%, rgba(180,245,150,.95), transparent 60%),
+      radial-gradient(46% 46% at 70% 62%, rgba(232,205,95,.85), transparent 62%),
+      radial-gradient(46% 46% at 56% 30%, rgba(120,220,175,.72), transparent 60%),
+      radial-gradient(60% 60% at 44% 76%, rgba(80,160,90,.7), transparent 66%);}
+  #mark.liste .neb{box-shadow:0 0 20px rgba(180,220,120,.22), inset 0 0 14px rgba(0,0,0,.7);}
+  #mark.liste .wm{color:#cfe08a;text-shadow:0 0 13px rgba(200,220,110,.4);}
+  #mark.liste .wm small{color:#8a9a54;}
+  @keyframes nebSpin{to{transform:rotate(360deg) scale(1.06);}}
+  @keyframes nebHue{to{filter:hue-rotate(360deg);}}
+  @keyframes nebTwinkle{0%,100%{opacity:.2;}50%{opacity:.95;}}
+  @media (max-width:480px){ #mark .wm{font-size:13px;} #mark .neb{width:40px;height:40px;} }
+</style>
+</head>
+<body>
+  <canvas id="noise" aria-hidden="true"></canvas>
+  <div class="flash" id="flash" aria-hidden="true"></div>
+  <div class="grain"></div><div class="vignette"></div>
+
+  <div class="disk">
+    <canvas id="viz"></canvas>
+    <button class="hit" id="tp" aria-label="ORBITAPE"></button>
+  </div>
+  <div id="mark" class="radio" role="button" tabindex="0" title="Switch mood: earth sounds ↔ radio">
+    <div class="neb"><i></i><i></i><i></i><i></i></div>
+    <div class="wm"><span id="wmName">ORBITAPE</span><small id="wmSub">RADIO</small></div>
+  </div>
+  <audio id="ses" preload="none"></audio>
+  <div id="rapor"><h4>SOURCE REPORT · v44 · press D</h4><div id="raplist"></div></div>
+
+<script>
+  var fxX=0, fxY=0;   // FX ışık noktası — TDZ olmasın diye en tepede
+  const KOLEKSIYONLAR = [
+    // --- bağımsız / underground / netlabel müzik (ağırlıklı) ---
+    "freemusicarchive","netlabels","opensource_audio",
+    // --- topluluk / creative commons ---
+    "audio_music","album_recordings","unlockedrecordings",
+    // --- eski / unutulmuş plaklar ---
+    "78rpm",
+    // --- radyo / kayıp yayın / atmosfer ---
+    "oldtimeradio","radioprograms","radio",
+    // --- sözlü / şiir / yabancı / niş ---
+    "librivoxaudio","audio_bookspoetry","audio_foreign","audio_religion","audio_tech",
+    // --- açık kaynak video (yalnızca ses türevi; düşük ağırlık) ---
+    "prelinger"
+  ];
+
+  // zaman aşımlı fetch + otomatik kara liste (yavaş/bozuk koleksiyonu eler)
+  const HATA = {};                 // kaynak -> arka arkaya hata sayısı
+  const OK = {};                   // kaynak -> toplam başarı sayısı
+  const FAIL = {};                 // kaynak -> toplam hata sayısı
+  const ELE_ESIK = 4;              // bu kadar ÜST ÜSTE hata olursa GEÇİCİ ele (kalıcı değil)
+  const KARA = new Set();          // geçici kara liste
+  const KARA_SURE = new Map();     // ne zaman elendi (toparlanma için)
+  function hataEkle(k){ HATA[k]=(HATA[k]||0)+1; FAIL[k]=(FAIL[k]||0)+1; if(HATA[k]>=ELE_ESIK){ KARA.add(k); KARA_SURE.set(k, Date.now()); } rapyaz(); }
+  function basari(k){ HATA[k]=0; KARA.delete(k); KARA_SURE.delete(k); OK[k]=(OK[k]||0)+1; rapyaz(); }   // affet
+  // TOPARLANMA: elenen koleksiyonları ~45sn sonra tekrar dene (archive geri gelirse yeşile döner) -> kalıcı ölüm yok
+  setInterval(()=>{ const now=Date.now(); let d=false;
+    for(const k of [...KARA]){ if(now-(KARA_SURE.get(k)||0) > 45000){ KARA.delete(k); KARA_SURE.delete(k); HATA[k]=0; d=true; } }
+    if(d) rapyaz();
+  }, 15000);
+  function fetchZA(url, ms){
+    return Promise.race([
+      fetch(url),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))
+    ]);
+  }
+  const $=id=>document.getElementById(id);
+  const btn=$('tp'), ses=$('ses'), flash=$('flash'), c=$('noise'), ctx=c.getContext('2d');
+  const mark=$('mark'), wmName=$('wmName'), wmSub=$('wmSub');   // mood başlığı
+  let mod='radio';                     // 'radio' | 'lib' | 'liste' (MIXTAPE — kendi şarkıların)
+  let radyoKuyruk=[];
+  // ── MIXTAPE: kullanıcının kendi şarkı listesi (liste.json) ──
+  const LISTE_URL = "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/liste.json";
+  // GÖMÜLÜ LİSTE: şarkılar doğrudan kodda -> önbellek/çekme sorunu olmadan kesin çalar. (liste.json güncellenince üstüne yazılır)
+  const G = "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/";
+  const GOMULU_LISTE = [
+    {mp3:G+"Ala.mp3",ad:"Ala"}, {mp3:G+"AwakeningTruths.mp3",ad:"Awakening Truths"},
+    {mp3:G+"BlummBlumm.mp3",ad:"Blumm Blumm"}, {mp3:G+"BrokenBeginnings.mp3",ad:"Broken Beginnings"},
+    {mp3:G+"CaramelDelusion.mp3",ad:"Caramel Delusion"}, {mp3:G+"EchoesofPain.mp3",ad:"Echoes of Pain"},
+    {mp3:G+"FCXXVI.mp3",ad:"FCXXVI"}, {mp3:G+"FallingDown.mp3",ad:"Falling Down"},
+    {mp3:G+"FamilyTies.mp3",ad:"Family Ties"}, {mp3:G+"HiddenBattles.mp3",ad:"Hidden Battles"},
+    {mp3:G+"Junkfail.mp3",ad:"Junkfail"}, {mp3:G+"Monkshood.mp3",ad:"Monkshood"},
+    {mp3:G+"Raindrop.mp3",ad:"Raindrop"}, {mp3:G+"SearchingforLight.mp3",ad:"Searching for Light"},
+    {mp3:G+"SilentStruggles.mp3",ad:"Silent Struggles"}, {mp3:G+"WhispersofAddiction.mp3",ad:"Whispers of Addiction"},
+    {mp3:G+"lostinShadows.mp3",ad:"Lost in Shadows"}, {mp3:G+"risingfromtheAshes.mp3",ad:"Rising from the Ashes"}
+  ].map((x,i)=>({id:'lst:'+i, mp3:x.mp3, ad:x.ad}));
+  let calListe = GOMULU_LISTE.slice(), _lsShuf=[], _lsIdx=0, listeYuklendi=false;
+  async function listeYukle(){
+    try{
+      const url = LISTE_URL + (LISTE_URL.includes('?')?'&':'?') + 't=' + Date.now();   // ÖNBELLEĞİ ATLA -> hep taze liste
+      const r = await fetchZA(url, 8000); if(!r || !r.ok) return calListe.length;
+      let d = await r.json();
+      let arr = Array.isArray(d) ? d : ((d && (d.tracks||d.songs||d.liste)) || []);
+      const yeni = arr.map((x,i)=>{
+        if(typeof x==='string') return { id:'lst:'+i, mp3:x, ad:((x.split('/').pop()||'').replace(/\.[a-z0-9]+$/i,'')) };
+        const u = x.mp3||x.url||x.src||x.file; if(!u) return null;
+        return { id:'lst:'+i, mp3:u, ad:(x.ad||x.title||x.name||'').toString() };
+      }).filter(Boolean);
+      if(yeni.length){
+        const mevcut = new Set(calListe.map(x=>x.mp3));
+        const eklenecek = yeni.filter(x=>x.mp3 && !mevcut.has(x.mp3));   // BİRLEŞTİR: gömülü + çekilen, sadece YENİ şarkı ekle (liste asla küçülmez)
+        if(eklenecek.length){ calListe = calListe.concat(eklenecek.map((x,i)=>({id:'net:'+i+':'+x.mp3, mp3:x.mp3, ad:x.ad}))); _lsShuf=[]; _lsIdx=0; }
+        listeYuklendi=true;
+      }
+      return calListe.length;
+    }catch(e){ return calListe.length; }
+  }
+  function listeGec(){                                   // MIXTAPE: sıradaki kendi şarkın (karışık, ses+grafik -> FX'li)
+    if(!calListe.length){ listeYukle().then(n=>{ if(n && mod==='liste') listeGec(); }); return; }
+    if(_lsIdx>=_lsShuf.length){ _lsShuf=calListe.slice().sort(()=>Math.random()-0.5); _lsIdx=0; }
+    cal(_lsShuf[_lsIdx++]);
+  }
+  const viz=$('viz'), vctx=viz.getContext('2d');
+  c.width=320; c.height=180;
+  let cekiliyor=false, sonrakiHazir=null, hazirlaniyor=false, actx=null, hataAt=0, itmAt=0;   // cekiliyor: arkada TEK fetch, tap'i ENGELLEMEZ
+  let analiz=null, analizVeri=null, srcNode=null, level=0, seviyeVar=false;
+  let baslatildi=false, aktifItem=null, ilkItem=null;                       // mobil ilk-oynatma + garanti parça
+  let sesHazirURL=null;                                                     // ses'e ÖNDEN yüklenmiş/tamponlanmış parça URL'i
+  let grafikCalisti=false, buParcaSinyal=false, calBaslangic=0, sonAtla=0;   // sessizlik gözcüsü
+  let lopass=null, fxSeviye=0;              // 0 = doğal/net, 1 = en uzak/boğuk
+  let yatay=0;                              // -1 = tam reverb (sol) .. 0 = temiz .. +1 = tam distortion (sağ)
+  let dryG=null, wetG=null, delayNode=null, fbNode=null, delayG=null, convNode=null;
+  let driveIn=null, shaper=null, hishelf=null, driveOut=null;   // DRIVE (yukarı): satürasyon + tiz boost
+  function driveCurve(k){                    // yumuşak tanh satürasyon eğrisi
+    const n=1024, c=new Float32Array(n);
+    for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; c[i]=Math.tanh(x*k); }
+    return c;
+  }
+  function plateImpulse(sn, decay){ // parlak, geniş plaka reverb
+    const sr=(actx?actx.sampleRate:44100), len=Math.floor(sr*sn), buf=(actx||new (window.AudioContext||window.webkitAudioContext)()).createBuffer(2,len,sr);
+    for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+      for(let i=0;i<len;i++){ const t=i/len; d[i]=(Math.random()*2-1)*Math.pow(1-t, decay)*(0.6+0.4*Math.sin(t*40)); } }
+    return buf;
+  }
+  function yatayUygula(){
+    if(!dryG) return;
+    const del=Math.max(0,yatay), plt=Math.max(0,-yatay);    // sağ=delay, sol=plate
+    try{
+      if(delayG){ delayG.gain.setTargetAtTime(del*0.85, actx.currentTime, 0.08); }
+      if(fbNode){ fbNode.gain.setTargetAtTime(0.25+del*0.35, actx.currentTime, 0.05); }
+      if(wetG){ wetG.gain.setTargetAtTime(plt*0.9, actx.currentTime, 0.08); }
+      dryG.gain.setTargetAtTime(1 - Math.max(del,plt)*0.4, actx.currentTime, 0.08);
+    }catch(e){}
+  }
+  function fxUygula(){
+    if(!lopass) return;
+    const t=(actx?actx.currentTime:0);
+    let f, q, drv, shelf, makeup;
+    if(fxSeviye>=0){                     // YUKARI = DRIVE: gövde/boost var ama tizler KAPALI (sıcak, harsh değil)
+      const a=fxSeviye;                  // 0..1
+      f=Math.round(20000*Math.pow(9000/20000, a));  // hafif tiz roll-off (20k -> ~9k), sürdükçe kapanır
+      q=0.7;
+      drv=1 + a*8;                       // satürasyon (boost / gövde)
+      shelf=-a*9;                        // high-shelf CUT: sürdükçe tizleri düşür -> aynı seviyede kalsın, tizlemesin
+      makeup=1/(1 + a*0.8);              // seviye dengesi
+    }else{                               // AŞAĞI = agresif cutoff + belirgin rezonans (vuuow)
+      const b=-fxSeviye;                 // 0..1
+      f=Math.round(6000*Math.pow(180/6000, b));   // 6000 -> 180 Hz
+      q=0.7 + b*16;                      // rezonans belirgin
+      drv=1; shelf=0; makeup=1;          // drive kapalı
+    }
+    try{ lopass.frequency.setTargetAtTime(f, t, 0.04); lopass.Q.setTargetAtTime(q, t, 0.04); }
+    catch(e){ lopass.frequency.value=f; lopass.Q.value=q; }
+    if(driveIn){ try{
+      driveIn.gain.setTargetAtTime(drv, t, 0.05);
+      hishelf.gain.setTargetAtTime(shelf, t, 0.05);
+      driveOut.gain.setTargetAtTime(makeup, t, 0.05);
+    }catch(e){} }
+  }
+  function analizKur(){
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==='suspended') actx.resume();
+      if(!srcNode){
+        srcNode=actx.createMediaElementSource(ses);
+        lopass=actx.createBiquadFilter(); lopass.type='lowpass'; lopass.frequency.value=20000; lopass.Q.value=0.7;
+
+        // DRIVE zinciri (yukarı yön): pre-gain -> waveshaper -> tiz shelf -> makeup
+        driveIn=actx.createGain(); driveIn.gain.value=1;
+        shaper=actx.createWaveShaper(); shaper.curve=driveCurve(2.2); shaper.oversample='2x';
+        hishelf=actx.createBiquadFilter(); hishelf.type='highshelf'; hishelf.frequency.value=3000; hishelf.gain.value=0;
+        driveOut=actx.createGain(); driveOut.gain.value=1;
+
+        // kuru (temiz) yol
+        dryG=actx.createGain(); dryG.gain.value=1;
+        // DELAY yolu (sağ): geri beslemeli eko
+        delayNode=actx.createDelay(2.0); delayNode.delayTime.value=0.28;
+        fbNode=actx.createGain(); fbNode.gain.value=0.42;
+        delayNode.connect(fbNode); fbNode.connect(delayNode);   // feedback döngüsü
+        delayG=actx.createGain(); delayG.gain.value=0;
+        // PLATE reverb yolu (sol): parlak, geniş plaka
+        convNode=actx.createConvolver(); convNode.buffer=plateImpulse(2.6, 2.0);
+        wetG=actx.createGain(); wetG.gain.value=0;
+
+        analiz=actx.createAnalyser(); analiz.fftSize=256; analiz.smoothingTimeConstant=0.8;
+        analizVeri=new Uint8Array(analiz.frequencyBinCount);
+
+        // bağlantılar: lopass -> DRIVE zinciri -> (dry/delay/plate)
+        srcNode.connect(lopass);
+        lopass.connect(driveIn); driveIn.connect(shaper); shaper.connect(hishelf); hishelf.connect(driveOut);
+        driveOut.connect(dryG);                          // temiz
+        driveOut.connect(delayNode); delayNode.connect(delayG);   // delay (sağ)
+        driveOut.connect(convNode); convNode.connect(wetG);       // plate (sol)
+        dryG.connect(analiz); delayG.connect(analiz); wetG.connect(analiz);
+        analiz.connect(actx.destination);
+        fxUygula(); yatayUygula();
+      }
+    }catch(e){ analiz=null; }   // CORS yoksa sessizce vazgeç
+  }
+  function seviyeOku(){
+    if(!analiz){ return; }
+    try{
+      analiz.getByteFrequencyData(analizVeri);
+      let t=0; for(let i=0;i<analizVeri.length;i++) t+=analizVeri[i];
+      const ort=t/analizVeri.length/255;           // 0..1
+      if(ort>0.001){ seviyeVar=true; buParcaSinyal=true; grafikCalisti=true; }   // gerçekten veri geliyor
+      level += (ort-level)*0.25;                    // yumuşat
+    }catch(e){}
+  }
+  let kuyruk=[];              // önden hazırlanan (hep YENİ) öğeler
+  const CALINDI = new Set();  // daha önce çalınan/kuyruğa girenler -> tekrar gelmez
+  const KUYRUK_HEDEF = 6;     // sade kuyruk: arkada birkaç parça hazır bekler
+  const HIZLI = ["78rpm","netlabels","audio_music","opensource_audio"]; // ilk garanti için en hızlılar
+
+  /* mouse tık */
+  // gerçek fare tıkı — HTML'e gömülü WAV (ağsız, CORS'suz, anında çalar). TIK_SES seviyesi kısık.
+  const TIK_SES = "data:audio/wav;base64,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9//u//v/+f/3/+z/+/8HAPT/DQACAAYAGQANAA0ABQALAAUAAAD6//D/9P/2//f/8P/7//z/BAAAAAAADAAFAAcADQAKAAcABQAEAP7/+v////P//P/0//j/9v/5//3/AwABAAcADAAHAAUACAAGAAUA/f8AAAEA+v/+//r/+f/2//7//P/7////AgAFAAMABgALAAMACQACAAIA/v8AAPr//v/6//r//f/8//7//P///wAABQADAAEACAADAAUABAABAAIAAAD8//3/+v/9//z//f/8/wAAAAABAAEAAgAEAAMAAwAEAAMAAQAAAAAA/v8AAP3//P/8//3//f///wAAAAABAAMAAwADAAIAAwACAAAAAQAAAP/////+//3//v/9//7//////wAAAAACAAIAAwADAAIAAQABAAAAAAD////////+//7//v//////AAAAAAAAAQABAAIAAQACAAEAAQAAAAAA//////////////////8AAAAAAAAAAAAAAQABAAEAAQABAAEAAAAAAAAA//////////////////8AAAAAAAAAAAEAAQABAAEAAQAAAAAAAAAAAAAAAAD//////////wAAAAAAAAAAAAAAAAEAAQABAAEAAAAAAAAAAAAAAAAAAAAAAP//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+  const TIK_VOL = 0.45;   // 0..1 arası ses seviyesi (kısmak için düşür)
+  let _tikAudio=null;
+  try{ _tikAudio=new Audio(TIK_SES); _tikAudio.preload='auto'; _tikAudio.volume=TIK_VOL; }catch(e){}
+  function tik(){
+    try{
+      if(_tikAudio){ const a=_tikAudio.cloneNode(); a.volume=TIK_VOL; a.currentTime=0; a.play().catch(()=>{}); return; }
+    }catch(e){}
+  }
+
+  function drawNoise(){const img=ctx.createImageData(c.width,c.height),d=img.data;
+    for(let i=0;i<d.length;i+=4){const v=Math.random()*130;d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=Math.random()*160;
+      const r=Math.random();if(r<0.015){d[i]=180;d[i+1]=40;d[i+2]=100;d[i+3]=140;}
+      else if(r<0.03){d[i]=40;d[i+1]=180;d[i+2]=170;d[i+3]=140;}}ctx.putImageData(img,0,0);}
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  /* ── canlı, akışkan, dokulu daire ── */
+  function vizSize(){const dpr=window.devicePixelRatio||1;viz.width=viz.clientWidth*dpr;viz.height=viz.clientHeight*dpr;}
+  window.addEventListener('resize',vizSize); vizSize();
+
+  // organik yarıçap (katmanlı sinüsler = akışkan zar)
+  function rAt(ang,t,base,amp){
+    return base*(1
+      + amp*0.55*Math.sin(ang*3 + t*0.8)
+      + amp*0.35*Math.sin(ang*5 - t*1.05)
+      + amp*0.28*Math.sin(ang*2 + t*0.45)
+      + amp*0.18*Math.sin(ang*7 + t*1.4));
+  }
+  function blobPath(cx,cy,t,base,amp){
+    vctx.beginPath();
+    const N=120;
+    for(let i=0;i<=N;i++){ const a=(i/N)*Math.PI*2, r=rAt(a,t,base,amp);
+      const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+      if(i===0) vctx.moveTo(x,y); else vctx.lineTo(x,y); }
+    vctx.closePath();
+  }
+
+  // sürüklenen zerreler
+  const ZERRE=[]; for(let i=0;i<26;i++) ZERRE.push({a:Math.random()*6.28,r:0.3+Math.random()*0.7,sp:0.1+Math.random()*0.4,s:0.5+Math.random()*1.5});
+
+  let vt=0;
+  function vizLoop(){
+    requestAnimationFrame(vizLoop);
+    const W=viz.width,H=viz.height; if(!W) return;
+    const dpr=window.devicePixelRatio||1, cx=W/2, cy=H/2, R=Math.min(W,H)*0.357;   /* tuval %40 büyüdü -> çarpan 0.5'ten 0.357'ye: halka/grafik boyutu AYNI, sadece kenar boşluğu var */
+    vctx.clearRect(0,0,W,H);
+    seviyeOku();
+    const playing = ses.src && !ses.paused && !ses.ended;
+    // sessizlik gözcüsü: graf çalışıyor ama sinyal yok (boş/tainted istasyon) -> BEKLEMEDEN atla (her iki mod)
+    // sessizlik gözcüsü SADECE kütüphane modunda -> radyoda kendi kendine atlama/kaçak döngü OLMAZ
+    if(mod!=='radio' && grafikCalisti && calBaslangic && !buParcaSinyal && !cekiliyor && (Date.now()-calBaslangic>700)){ calBaslangic=0; atla(); }
+    const rit = (seviyeVar? level : 0);            // gerçek ritim (radyo da artık grafikten geçtiği için analiz var)
+    const energy = (playing?0.8:0.4) + rit*0.7;    // ritimle canlanma (belirgin)
+    const err = hataAt>Date.now();
+    // basış "nefesi": kısa süre içeri çekilme
+    let squeeze=1; if(itmAt>Date.now()){ const k=(itmAt-Date.now())/260; squeeze=1-0.14*Math.sin(k*Math.PI); }
+    vt += playing?0.010:0.005;
+
+    const teal = err?'255,46,126':'53,224,216', mag='255,46,126';
+
+    // dış hayalet halkalar: daha 3B, organik, ağır ve canlı (derinlik gölgesi + hacim)
+    for(let k=0;k<4;k++){
+      vctx.save(); vctx.translate(cx,cy);
+      vctx.rotate((k%2?-1:1)*vt*0.28 + k*0.4);   // daha yavaş, ağır dönüş
+      vctx.translate(-cx,-cy);
+      const esne = 1 + rit*(0.10+0.05*k) + 0.03*Math.sin(vt*1.2+k*1.3);
+      const rR = R*(0.66+k*0.085)*squeeze*esne;
+      // hacim: aynı halkayı hafif kaydırıp koyu bir "gölge" alt katman + parlak üst kat
+      blobPath(cx+2*dpr, cy+3*dpr, vt*(0.7+k*0.2)+k*1.7, rR, 0.05+energy*0.05+rit*0.05);
+      vctx.strokeStyle='rgba(10,20,26,'+(0.35)+')'; vctx.lineWidth=(2.4+rit*1.2)*dpr; vctx.stroke();  // derinlik gölgesi
+      blobPath(cx,cy, vt*(0.7+k*0.2)+k*1.7, rR, 0.05+energy*0.05+rit*0.05);
+      const a=(0.05+0.09*energy+rit*0.16)*(1-k*0.12);
+      const gg=vctx.createLinearGradient(cx-rR,cy-rR,cx+rR,cy+rR);
+      gg.addColorStop(0,'rgba('+teal+','+a+')'); gg.addColorStop(0.5,'rgba('+mag+','+(a*0.7)+')'); gg.addColorStop(1,'rgba('+teal+','+a+')');
+      vctx.strokeStyle=gg; vctx.lineWidth=(1.2+rit*1.4)*dpr; vctx.stroke();
+      vctx.restore();
+    }
+
+    // ana zar (dolgulu, hafif renkli, karanlık)
+    const base=R*0.56*squeeze*(1+rit*0.05), amp=0.06+energy*0.10+rit*0.06;
+    blobPath(cx,cy,vt,base,amp);
+    const g=vctx.createRadialGradient(cx,cy,base*0.1,cx,cy,base*1.15);
+    g.addColorStop(0,'rgba('+teal+','+(0.10+0.10*energy)+')');
+    g.addColorStop(0.6,'rgba('+mag+','+(0.05+0.05*energy)+')');
+    g.addColorStop(1,'rgba(4,6,8,0)');
+    vctx.fillStyle=g; vctx.shadowBlur=30*dpr; vctx.shadowColor='rgba('+teal+',0.25)'; vctx.fill(); vctx.shadowBlur=0;
+    vctx.strokeStyle='rgba('+teal+','+(0.22+0.18*energy)+')'; vctx.lineWidth=1.4*dpr; vctx.stroke();
+
+    // iç doku (grain) — zara kırpılmış rastgele noktalar
+    vctx.save(); blobPath(cx,cy,vt,base*0.98,amp); vctx.clip();
+    const dots=Math.floor(140*energy);
+    for(let i=0;i<dots;i++){ const a=Math.random()*6.28, rr=Math.random()*base;
+      const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr;
+      vctx.fillStyle='rgba('+(Math.random()<0.5?teal:mag)+','+(0.03+Math.random()*0.05)+')';
+      vctx.fillRect(x,y,1.2*dpr,1.2*dpr); }
+    vctx.restore();
+
+    // çekirdek nefes
+    const pulse=base*(0.24+0.05*Math.sin(vt*3)*energy);
+    const cg=vctx.createRadialGradient(cx,cy,0,cx,cy,pulse);
+    cg.addColorStop(0,'rgba(232,244,244,'+(0.28*energy+0.05)+')'); cg.addColorStop(1,'rgba('+teal+',0)');
+    vctx.fillStyle=cg; vctx.beginPath(); vctx.arc(cx,cy,pulse,0,6.29); vctx.fill();
+
+    // sürüklenen zerreler
+    for(const z of ZERRE){ z.a+=z.sp*0.004*(0.4+energy);
+      const rr=z.r*R*0.9, x=cx+Math.cos(z.a)*rr, y=cy+Math.sin(z.a)*rr;
+      vctx.fillStyle='rgba('+teal+','+(0.06+0.10*energy)+')';
+      vctx.beginPath(); vctx.arc(x,y,z.s*dpr,0,6.29); vctx.fill(); }
+
+    // FX ışığı: merkez=sıfır. fxX/fxY yönünde, halka üstünde parlayan nokta.
+    const mag2=Math.min(1,Math.hypot(fxX,fxY));
+    if(mag2>0.02){
+      const lx=cx+fxX*R*0.82, ly=cy-fxY*R*0.82;   // ekran y ters
+      const ışıkR=(6+10*mag2)*dpr;
+      const lg=vctx.createRadialGradient(lx,ly,0,lx,ly,ışıkR);
+      lg.addColorStop(0,'rgba(255,255,255,'+(0.55*mag2+0.2)+')');
+      lg.addColorStop(0.4,'rgba('+teal+','+(0.5*mag2)+')');
+      lg.addColorStop(1,'rgba('+teal+',0)');
+      vctx.fillStyle=lg; vctx.beginPath(); vctx.arc(lx,ly,ışıkR,0,6.29); vctx.fill();
+    } else {
+      // merkezde sönük çekirdek ışığı (sıfır noktası göstergesi)
+      const cg2=vctx.createRadialGradient(cx,cy,0,cx,cy,5*dpr);
+      cg2.addColorStop(0,'rgba(232,244,244,0.25)'); cg2.addColorStop(1,'rgba('+teal+',0)');
+      vctx.fillStyle=cg2; vctx.beginPath(); vctx.arc(cx,cy,5*dpr,0,6.29); vctx.fill();
+    }
+  }
+  vizLoop();
+
+  /* ── archive.org: sadece ses ── */
+  async function mp3Bul(id){
+    let r; try{ r=await fetchZA("https://archive.org/metadata/"+id, 8000);}catch(e){ throw {kod:'AG'}; }
+    if(!r.ok) return null; let j={}; try{ j=await r.json(); }catch(e){ return null; }
+    const files=j.files||[];
+    const sesFmt=/mp3/i, sesUzanti=/\.(mp3|ogg|oga|opus|flac|m4a)$/i, sesGenis=/(ogg\b|flac|opus|m4a)/i;
+    const videoUzanti=/\.(mp4|m4v|mkv|webm|ogv|avi|mov)$/i;   // bunları ASLA çalma
+    // önce mp3 türevi (video öğesinde bile archive genelde mp3 üretir), sonra diğer ses
+    let f=files.find(x=>sesFmt.test(x.format||'')&&!videoUzanti.test(x.name||''))
+        ||files.find(x=>sesUzanti.test(x.name||''))
+        ||files.find(x=>sesGenis.test((x.format||''))&&!videoUzanti.test(x.name||''));
+    if(!f) return null;               // gerçek ses türevi yoksa: atla (büyük video inmesin)
+    if(videoUzanti.test(f.name||'')) return null;
+    return "https://archive.org/download/"+id+"/"+f.name.split('/').map(encodeURIComponent).join('/');
+  }
+  // müzik-ağırlıklı temel ağırlıklar (dengeyi buradan ayarla)
+  const KOL_AGIRLIK = {
+    freemusicarchive:3, netlabels:3, opensource_audio:3, audio_music:3,
+    album_recordings:3, unlockedrecordings:3, "78rpm":3,
+    oldtimeradio:1.5, radioprograms:1.5, radio:1.5,
+    librivoxaudio:1, audio_bookspoetry:1, audio_foreign:1, audio_religion:1, audio_tech:1,
+    prelinger:0.5
+  };
+  function kolAgirlik(k){
+    const b = KOL_AGIRLIK[k] || 1;
+    const ok = OK[k]||0, f = FAIL[k]||0;
+    const oran = (ok+1)/(ok+f+1);      // 0..1 başarı oranı (+1 yumuşatma)
+    return b * oran * oran;            // çalmayan/başarısızları sert geriye at
+  }
+  function kolSec(sadeceHizli){
+    const kaynak = sadeceHizli ? HIZLI : KOLEKSIYONLAR;
+    const uygun=kaynak.filter(k=>!KARA.has(k));
+    const havuz=uygun.length?uygun:kaynak;
+    // ağırlıklı rastgele seçim
+    let top=0; const w=havuz.map(k=>{ const x=Math.max(0.02, kolAgirlik(k)); top+=x; return x; });
+    let r=Math.random()*top;
+    for(let i=0;i<havuz.length;i++){ r-=w[i]; if(r<=0) return havuz[i]; }
+    return havuz[havuz.length-1];
+  }
+  async function birOgeBul(){
+    const kol=kolSec(birOgeBul._hizli), sayfa=1+(Math.random()*40|0);
+    const url="https://archive.org/advancedsearch.php?q="+encodeURIComponent("collection:"+kol+" AND (mediatype:audio OR mediatype:movies)")+
+      "&fl[]=identifier&rows=50&page="+sayfa+"&output=json";
+    let r;
+    try{ r=await fetchZA(url, 8000); }catch(e){ hataEkle(kol); return null; }   // geç açan -> ele, başka koleksiyon dene
+    if(!r.ok){ hataEkle(kol); return null; }
+    let docs=[]; try{ docs=(await r.json()).response.docs||[]; }catch(e){}
+    if(!docs.length){ hataEkle(kol); return null; }                            // boş -> ele
+    docs.sort(()=>Math.random()-0.5);
+    for(const d of docs.slice(0,8)){ if(!d.identifier) continue;
+      if(CALINDI.has(d.identifier)) continue;                 // daha önce geldi -> atla
+      if(kuyruk.some(x=>x.id===d.identifier)) continue;       // zaten kuyrukta -> atla
+      let mp3=null; try{ mp3=await mp3Bul(d.identifier); }catch(e){}
+      if(mp3){ basari(kol); CALINDI.add(d.identifier); return {id:d.identifier,mp3}; }
+    }
+    return null;
+  }
+  async function arsivdenCek(){ for(let t=0;t<5;t++){ const o=await birOgeBul(); if(o) return o; } return null; }
+
+  /* ── Jamendo: açık lisanslı (CC) müzik, world/folk ağırlıklı ── */
+  const JAMENDO_ID  = "1414db67";                 // ücretsiz Client ID (herkese açık)
+  const JAMENDO_ORAN = 0.2;                       // yeni öğe çekerken Jamendo olasılığı
+  const JAMENDO_ETIKET = ["world","folk","african","traditional","ethnic",
+                          "reggae","latin","jazz","ambient","acoustic",""]; // "" = tüm türler
+  async function jamendoCek(){
+    const tag = JAMENDO_ETIKET[Math.random()*JAMENDO_ETIKET.length|0];
+    const off = Math.random()*150|0;              // rastgelelik için değişken ofset
+    let url = "https://api.jamendo.com/v3.0/tracks/?client_id="+JAMENDO_ID+
+      "&format=json&limit=20&offset="+off+"&order=popularity_month&audioformat=mp31";
+    if(tag) url += "&fuzzytags="+encodeURIComponent(tag);
+    let r; try{ r=await fetchZA(url, 6000); }catch(e){ hataEkle('jamendo'); return null; }
+    if(!r.ok){ hataEkle('jamendo'); return null; }
+    let js={}; try{ js=await r.json(); }catch(e){ hataEkle('jamendo'); return null; }
+    const list=(js.results||[]).filter(t=>t && t.audio);
+    if(!list.length){ hataEkle('jamendo'); return null; }
+    list.sort(()=>Math.random()-0.5);
+    for(const t of list){
+      const id="jam:"+t.id;
+      if(CALINDI.has(id)) continue;
+      if(kuyruk.some(x=>x.id===id)) continue;
+      basari('jamendo'); CALINDI.add(id);
+      return { id, mp3:t.audio, ad:(t.artist_name?t.artist_name+" — ":"")+(t.name||"") };
+    }
+    return null;
+  }
+
+  async function kaynaktanCek(){
+    if(Math.random()<JAMENDO_ORAN){ const j=await jamendoCek(); if(j) return j; }   // %20 jamendo
+    return await arsivdenCek();                     // aksi halde archive TEK BAŞINA (yarış yok -> zaman aşımıyla elenmez)
+  }
+  async function hizliCek(){
+    birOgeBul._hizli=true;
+    try{
+      // yarış: 3 hızlı kaynağı aynı anda dene, ilk döneni al
+      for(let tur=0; tur<2; tur++){
+        const grup=Array.from({length:3},()=>birOgeBul().catch(()=>null));
+        const sonuc=await Promise.all(grup);
+        const ilk=sonuc.find(o=>o);
+        if(ilk) return ilk;
+      }
+    } finally{ birOgeBul._hizli=false; }
+    return null;
+  }
+  async function hazirla(){
+    if(hazirlaniyor) return; hazirlaniyor=true;
+    try{
+      let bosDeneme=0;
+      while(kuyruk.length<KUYRUK_HEDEF && bosDeneme<3){
+        const eksik=KUYRUK_HEDEF-kuyruk.length;
+        // paralel: aynı anda birkaç kaynağı dene, ilk gelenleri kuyruğa kat
+        const grup=await Promise.all(Array.from({length:Math.min(eksik,2)},()=>kaynaktanCek().catch(()=>null)));
+        const yeni=grup.filter(o=>o && !kuyruk.some(x=>x.id===o.id));
+        if(yeni.length){ kuyruk.push(...yeni); bosDeneme=0; } else { bosDeneme++; }
+      }
+    }catch(e){} finally{ hazirlaniyor=false; onbellekIsit(); }
+  }
+  function kuyruktanAl(){ const o=kuyruk.shift()||null; if(o) CALINDI.add(o.id); return o; }
+
+  // ── ön-bellek: sadece sıradaki parçayı önden yükle (basit, tek) ──
+  const onbellek = new Audio(); onbellek.preload='auto';
+  let onbellekURL = null;
+  function onbellekIsit(){
+    const nx = kuyruk[0];
+    if(nx && nx.mp3 && nx.mp3!==onbellekURL){
+      onbellekURL = nx.mp3;
+      try{ onbellek.src = nx.mp3; onbellek.load(); }catch(e){}
+    }
+  }
+
+  // ── frekans arama sesi: yumuşak ANALOG synth tonu (cutoff baya kapalı VCF), "tı—tı—tı" 3 ton -> bekle -> tekrar ──
+  let aramaCalisyor=false, aramaTimer=null, aramaLoop=null;
+  function aramaTon(t, freq){                 // tek yumuşak, karanlık analog ton
+    try{
+      const o1=actx.createOscillator(); o1.type='triangle'; o1.frequency.value=freq;
+      const o2=actx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=freq; o2.detune.value=-7;  // hafif detune -> analog sıcaklık
+      const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=4;                                 // biraz rezonans
+      const g=actx.createGain();
+      o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(actx.destination);
+      // VCF zarfı: cutoff BAYA KAPALI, hafif açılıp kapanır (modular hissi) -> karanlık yumuşak ton
+      lp.frequency.setValueAtTime(300, t);
+      lp.frequency.linearRampToValueAtTime(660, t+0.06);
+      lp.frequency.exponentialRampToValueAtTime(280, t+0.30);
+      // genlik zarfı: yumuşak atak + orta sönüm (perküsif DEĞİL), baya kısık
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.03, t+0.045);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+0.34);
+      o1.start(t); o2.start(t); o1.stop(t+0.38); o2.stop(t+0.38);
+    }catch(e){}
+  }
+  function aramaBaslat(){
+    if(!actx || aramaCalisyor) return; aramaCalisyor=true;
+    const grup=()=>{
+      if(!aramaCalisyor) return;
+      const t0=actx.currentTime+0.02;
+      aramaTon(t0,      233);              // 3 yumuşak ton (hafif melodik tarama hissi)
+      aramaTon(t0+0.19, 311);
+      aramaTon(t0+0.38, 196);
+      aramaLoop=setTimeout(grup, 1300);    // 3 ton -> ~0.7sn bekle -> yine
+    };
+    grup();
+  }
+  function aramaDurdur(){
+    aramaCalisyor=false;
+    clearTimeout(aramaLoop); aramaLoop=null;
+  }
+  function radyoSeek(){   // radyo gibi: mümkünse şarkının bir yerinden gir — SADECE buffered içinde (boşluk yaratmaz)
+    try{
+      const d=ses.duration;
+      if(!isFinite(d) || d<40) return;
+      let ust=6;
+      if(ses.buffered && ses.buffered.length) ust=Math.max(ust, ses.buffered.end(ses.buffered.length-1)-3);
+      const hedef=Math.min(ust, 4+Math.random()*Math.min(d*0.3, 35));
+      if(hedef>2 && hedef<d-5) ses.currentTime=hedef;
+    }catch(e){}
+  }
+  function atla(){ const now=Date.now(); if(now-sonAtla<300) return; sonAtla=now; sonraki(false); }   // boş/çalamayan parçayı otomatik (sessiz) geç
+  function cal(item){
+    if(!item) return;
+    aktifItem=item; buParcaSinyal=false; calBaslangic=0;
+    if(sesHazirURL===item.mp3 && ses.getAttribute('src')){
+      // bu parça zaten ÖNDEN yüklendi (ilk parça) -> src'yi SIFIRLAMA, tamponu koru => anında başlar
+    }else{
+      try{ ses.crossOrigin='anonymous'; }catch(e){}
+      ses.preload='auto';
+      ses.src=item.mp3; sesHazirURL=item.mp3;
+    }
+    clearTimeout(aramaTimer); aramaTimer=setTimeout(aramaBaslat, 240);   // 240ms'de girmezse frekans-arama sesi boşluğu doldurur
+    const basladi=()=>{ clearTimeout(aramaTimer); aramaDurdur(); baslatildi=true; document.body.classList.add('playing'); calBaslangic=Date.now(); };
+    ses.play().then(()=>{
+      basladi(); analizKur(); yatayUygula();
+    }).catch(()=>{
+      if(srcNode){ clearTimeout(aramaTimer); atla(); return; }   // graf var -> izinsiz çalınca SESSİZ olur -> atla
+      try{ ses.removeAttribute('crossorigin'); ses.crossOrigin=null; }catch(e){}   // graf yoksa: sesli doğrudan çal (FX yok)
+      ses.load();
+      ses.play().then(basladi).catch(()=>{ clearTimeout(aramaTimer); atla(); });
+    });
+    onbellekIsit();
+  }
+  // parça biter / akış düşerse -> otomatik sıradaki (tık yok); hata -> sessiz atla  (her iki mod)
+  // otomatik ilerleme/atlama SADECE kütüphane modunda -> radyo tamamen ELLE (kendi kendine yenilenmez)
+  ses.addEventListener('ended', ()=>{ if(mod!=='radio') sonraki(false); });
+  ses.addEventListener('error', ()=>{ if(mod!=='radio' && ses.src) atla(); });
+
+  /* ── CANLI RADYO (Radio Browser): kütüphaneyle AYNI ses+grafikten çalar -> FX + görselleştirme radyoda da çalışır.
+        CORS başlığı olmayan istasyonlar grafikten geçince sessiz kalır -> gözcü onları otomatik atlar. ── */
+  const RB_SUNUCU=["https://de1.api.radio-browser.info","https://all.api.radio-browser.info","https://at1.api.radio-browser.info","https://fi1.api.radio-browser.info"];
+  const RB_ETIKET=["jazz","ambient","lofi","chillout","downtempo","electronic","classical","reggae","world","funk","soul","instrumental","dub","blues",""];
+  let radyoDolduruluyor=false;
+  async function radyoListe(){                              // TEK istekte çok istasyon (bekleme azaltır)
+    const sunucu=RB_SUNUCU[Math.random()*RB_SUNUCU.length|0], tag=RB_ETIKET[Math.random()*RB_ETIKET.length|0];
+    let url=sunucu+"/json/stations/search?hidebroken=true&is_https=true&codec=MP3&order=random&limit=40"; if(tag) url+="&tag="+encodeURIComponent(tag);
+    let r; try{ r=await fetchZA(url,6000);}catch(e){ hataEkle('radyo'); return []; }
+    if(!r||!r.ok){ hataEkle('radyo'); return []; }
+    let list=[]; try{ list=await r.json(); }catch(e){ hataEkle('radyo'); return []; }
+    list=(list||[]).filter(s=>{ const u=(s&&(s.url_resolved||s.url))||''; return /^https:/i.test(u) && s.lastcheckok!==0; });
+    list.sort(()=>Math.random()-0.5);
+    return list;
+  }
+  async function radyoKuyrukDoldur(){
+    if(radyoDolduruluyor || radyoKuyruk.length>=6) return;
+    radyoDolduruluyor=true;
+    try{
+      const list=await radyoListe(); let ekle=0;
+      for(const s of list){ if(radyoKuyruk.length>=8) break;
+        const u=s.url_resolved||s.url, id="rb:"+(s.stationuuid||u);
+        if(CALINDI.has(id)||radyoKuyruk.some(x=>x.id===id)) continue;
+        radyoKuyruk.push({ id, mp3:u, ad:(s.name||'radyo').replace(/\s+/g,' ').trim(), radyo:true }); ekle++;
+      }
+      if(ekle) basari('radyo');
+    }catch(e){ hataEkle('radyo'); }
+    radyoDolduruluyor=false;
+  }
+  function radyoGec(){                                       // radyo modunda "sıradaki istasyon" -> ses+grafikten çal (FX'li)
+    let it=radyoKuyruk.shift();
+    if(it){ CALINDI.add(it.id); cal(it); radyoKuyrukDoldur(); return; }
+    if(cekiliyor) return; cekiliyor=true;                    // kuyruk boş: doldur, sonra çal
+    (async()=>{ try{ await radyoKuyrukDoldur(); }catch(e){} cekiliyor=false;
+      let it=radyoKuyruk.shift();
+      if(it){ CALINDI.add(it.id); cal(it); } else setTimeout(()=>{ if(!cekiliyor && mod==='radio') radyoGec(); },800);
+      radyoKuyrukDoldur();
+    })();
+  }
+
+  // TEK & HIZLI GEÇİŞ: her tık anında sıradakine. Asla yutulmaz, "1./2./3. tık" ayrımı yok.
+  let nesil = 0;   // her basış nesli artırır; kilit YOK
+  function sonraki(kullanici){
+    if(kullanici){ tik(); itmAt=Date.now()+260; }                          // her basış: KLİK sesi + nefes efekti
+    document.body.classList.add('firing','gecis'); setTimeout(()=>document.body.classList.remove('gecis'),220);
+    try{ ses.pause(); }catch(e){}                                          // temiz kesim: eski parça sussun
+    aramaBaslat();                                                         // FREKANS / ARAMA sesi HEMEN
+    if(mod==='radio'){ radyoGec(); return; }                               // RADYO moodu: sıradaki istasyon
+    if(mod==='liste'){ listeGec(); return; }                               // MIXTAPE moodu: sıradaki kendi şarkın
+    const benim = ++nesil;                                                 // bu basışın kimliği
+    let item=ilkItem; if(item){ ilkItem=null; } else { item=kuyruktanAl(); }
+    if(item){ cal(item); hazirla(); return; }                              // kuyrukta hazır varsa ANINDA çal
+    // kuyruk boş -> çek (KİLİT YOK). Gelince SADECE bu hâlâ en son basışsa çal (en son basış kazanır)
+    hazirla();
+    (async()=>{
+      let yeni=null; try{ yeni=await hizliCek(); }catch(e){}                // önce HIZLI koleksiyonlar
+      if(!yeni){ try{ yeni=await kaynaktanCek(); }catch(e){} }              // sonra normal kaynak
+      if(benim!==nesil) return;                                            // daha yeni basış oldu -> bu sonucu at
+      if(yeni){ cal(yeni); }                                               // buldu -> çal
+      else setTimeout(()=>{ if(benim===nesil) sonraki(false); }, 700);     // bulamadı -> tekrar dene
+    })();
+  }
+
+  function rapyaz(){
+    const el=document.getElementById('raplist'); if(!el) return;
+    let h='';
+    for(const k of [...KOLEKSIYONLAR,'jamendo','radyo']){
+      const ok=OK[k]||0, f=FAIL[k]||0, dead=KARA.has(k);
+      const cls=dead?'dead':(ok>0?'ok':(f>0?'fail':''));
+      const durum=dead?'⊘ dropped':(ok>0?('✓ '+ok):(f>0?('✕ '+f):'—'));
+      const ad=(k==='radyo')?'radio-browser (live)':k;
+      h+='<div class="row"><span class="'+cls+'">'+ad+'</span><span class="'+cls+'">'+durum+'</span></div>';
+    }
+    el.innerHTML=h;
+  }
+  document.addEventListener('keydown',e=>{ if(e.key==='d'||e.key==='D'){ const r=document.getElementById('rapor'); r.classList.toggle('on'); rapyaz(); } });
+  // Kısa tık = yeni ses; basılı tutup dikey sürükle = lo-fi FX (yukarı boğuk / aşağı net)
+  let pDown=false, pMoved=false, startY=0, startX=0;
+  const SUR_ESIK=8;   // bu kadar px hareket = sürükleme sayılır (tık değil)
+  btn.addEventListener('pointerdown', e=>{
+    e.preventDefault();                                   // iOS: seçim/callout/sentetik-fare olayını engelle
+    pDown=true; pMoved=false; startY=e.clientY; startX=e.clientX;
+    try{ btn.setPointerCapture(e.pointerId); }catch(_){}
+    try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); actx.resume(); }catch(_){}
+  }, {passive:false});
+  btn.addEventListener('pointermove', e=>{
+    if(!pDown) return;
+    if(Math.abs(e.clientX-startX)>SUR_ESIK || Math.abs(e.clientY-startY)>SUR_ESIK) pMoved=true;
+    if(pMoved){                                          // FX artık HER modda (radyo da ses+grafikten geçiyor)
+      e.preventDefault();                                 // sürüklerken sayfa kaymasın (touch-action:none ile birlikte)
+      // MERKEZE göre: diskin ortası = sıfır (temiz). yarıçapa göre normalize.
+      const r=btn.getBoundingClientRect();
+      const cx=r.left+r.width/2, cy=r.top+r.height/2, rad=r.width/2;
+      let nx=(e.clientX-cx)/rad, ny=(cy-e.clientY)/rad;   // -1..1 (yukarı +)
+      nx=Math.max(-1,Math.min(1,nx)); ny=Math.max(-1,Math.min(1,ny));
+      fxX=nx; fxY=ny;                                     // ışık için
+      yatay=nx; yatayUygula();                            // sağ delay / sol plate
+      fxSeviye=ny; fxUygula();                            // yukarı=+ lo-fi, aşağı=- cutoff+rez
+    }
+  }, {passive:false});
+  function temizeDon(){
+    // bırakınca yumuşakça merkeze (temiz) dön
+    fxX=0; fxY=0; yatay=0; fxSeviye=0; yatayUygula(); fxUygula();
+  }
+  btn.addEventListener('pointerup', e=>{
+    if(!pDown) return; pDown=false;
+    try{ btn.releasePointerCapture(e.pointerId); }catch(_){}
+    if(!pMoved){                                   // HER tık = anında sıradaki (ilk/2./3. ayrımı yok, asla yutulmaz)
+      try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); actx.resume(); }catch(_){}
+      sonraki(true);
+    }
+  });
+  btn.addEventListener('pointercancel', ()=>{ if(pDown){ pDown=false; } });   // latch: sıfırlama yok
+  btn.addEventListener('contextmenu', e=>e.preventDefault());                 // mobil uzun-basış menüsü çıkmasın
+  btn.addEventListener('lostpointercapture', ()=>{ /* yakalama düşerse tık latch'i korunur */ });
+
+  // ── MOOD anahtarı: tıkla -> RADIO → EARTH SOUNDS → MIXTAPE → RADIO (hepsinde FX var) ──
+  function moodYaz(){
+    mark.classList.remove('radio','liste'); wmName.textContent='ORBITAPE';
+    if(mod==='radio'){ mark.classList.add('radio'); wmSub.textContent='RADIO'; }
+    else if(mod==='liste'){ mark.classList.add('liste'); wmSub.textContent='MIXTAPE'; }
+    else { wmSub.textContent='EARTH SOUNDS'; }
+  }
+  function moodDegis(){
+    try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); actx.resume(); }catch(_){}
+    mod = (mod==='radio') ? 'lib' : (mod==='lib') ? 'liste' : 'radio';     // 3 mood sırayla
+    moodYaz();
+    if(mod==='radio') radyoKuyrukDoldur();
+    if(mod==='liste') listeYukle();
+    sonraki(false);
+  }
+  mark.addEventListener('click', moodDegis);
+  mark.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); moodDegis(); } });
+  // ilk-truthy yarışı: verilen sözlerden ilk DOLU döneni al (hepsi boşsa null)
+  function ilkTruthy(sozler){
+    return new Promise(res=>{
+      let kalan=sozler.length, bitti=false;
+      sozler.forEach(p=>Promise.resolve(p).then(v=>{
+        if(!bitti && v){ bitti=true; res(v); }
+        if(--kalan===0 && !bitti){ bitti=true; res(null); }
+      }).catch(()=>{ if(--kalan===0 && !bitti){ bitti=true; res(null); } }));
+    });
+  }
+  // ilk garanti: sayfa açılır açılmaz EN HIZLI başlayan kaynağı bul + ses'e ÖNDEN tampon yükle -> ilk basış ANINDA
+  (async()=>{
+    let ilk=null;
+    try{
+      // Jamendo mp31 akışı çok çabuk girer; archive hızlı koleksiyonlarıyla yarıştır, ilk döneni al
+      ilk = await ilkTruthy([ jamendoCek().catch(()=>null), hizliCek().catch(()=>null) ]);
+    }catch(e){}
+    if(!ilk){ try{ ilk = await kaynaktanCek(); }catch(e){} }   // yine de bulamazsa normal kaynağa düş
+    if(ilk){
+      ilkItem = ilk; CALINDI.add(ilk.id);
+      try{
+        ses.crossOrigin='anonymous';
+        ses.preload='auto';               // ÖNDEN tamponla: basınca ağı bekleme, hemen gir
+        ses.src=ilk.mp3; sesHazirURL=ilk.mp3;
+        ses.load();
+      }catch(e){}
+    }
+    hazirla();   // kütüphane çeşitliliğini arkada topla (isteyen üstten geçince hazır olsun)
+    radyoKuyrukDoldur();   // AÇILIŞ RADYO: birkaç istasyonu önden hazırla ki ilk dokunuş anında çalsın
+    listeYukle();          // MIXTAPE listesini de önden yükle (moda geçince anında)
+  })();
+</script>
+</body>
+</html>
