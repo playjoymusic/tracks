@@ -1,5 +1,9 @@
 [
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Ala.mp3", "ad": "Ala" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/BlummBlumm.mp3", "ad": "Blumm Blumm" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/CaramelDelusion.mp3", "ad": "Caramel Delusion" },
   { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/FCXXVI.mp3", "ad": "FCXXVI" },
-  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Junkfail.mp3", "ad": "Junkfail" }
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Junkfail.mp3", "ad": "Junkfail" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Monkshood.mp3", "ad": "Monkshood" },
+  { "mp3": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/Raindrop.mp3", "ad": "Raindrop" }
 ]
