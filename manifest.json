@@ -1,0 +1,16 @@
+{
+  "name": "ORBITAPE",
+  "short_name": "ORBITAPE",
+  "description": "Ses gezgini: arsiv kayitlari, kendi sarkilarin ve dunya radyolari.",
+  "start_url": "https://orbitape.caneranar.workers.dev/",
+  "scope": "https://orbitape.caneranar.workers.dev/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05080a",
+  "theme_color": "#05080a",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "https://cdn.jsdelivr.net/gh/playjoymusic/tracks@main/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
